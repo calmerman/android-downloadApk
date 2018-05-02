@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!--path：需要临时授权访问的路径（.代表所有路径） name：访问路径名字-->
+    <external-files-path path="Download" name="download" />
+</paths>
