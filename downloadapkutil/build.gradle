@@ -5,7 +5,7 @@ publish {
     userOrg = 'wanxin'//bintray.com用户名
     groupId = 'com.downloadapkutil'//library的Id
     artifactId = 'downloadapkutil'//项目名称
-    publishVersion = '0.0.1'//版本号
+    publishVersion = '0.0.2'//版本号
     desc = 'this is a util of download apk'//描述，不重要
     website = 'https://github.com/calmerman/android-downloadApk'//网站
 }
