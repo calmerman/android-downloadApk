@@ -3,6 +3,8 @@ package com.downloadapkutil;
 import android.app.DownloadManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
@@ -70,12 +72,50 @@ public class DownloadApkUtil {
     }
 
 
-    public void startDownloadAPKByUrl(String downloadApkUrl) {
+    /**
+     * 开始下载apk
+     * @param downloadApkUrl apk下载链接
+     * @param downloadApkVersionCode  下载的apk的 version code 为null时候不去校验是否已经存在apk,存在直接安装
+     */
+    public void startDownloadAPKByUrl(String downloadApkUrl, String downloadApkVersionCode) {
         if (downloadUrl.equals(downloadApkUrl)) {
             Toast.makeText(context, "正在下载", Toast.LENGTH_SHORT).show();
             return;
         }
         downloadUrl = downloadApkUrl;
+
+        //version不等于空，对比是否存在下载过得apk文件，存在就直接暗转
+        if (!TextUtils.isEmpty(downloadApkVersionCode)) {
+            String dirPath = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS).getAbsolutePath();
+            dirPath = dirPath.endsWith(File.separator) ? dirPath : dirPath + File.separator;
+            String downloadApkPath = dirPath + downloadAPKName;
+
+            //先检查本地是否已经有需要升级版本的安装包，如有就不需要再下载
+            File targetApkFile = new File(downloadApkPath);
+            if (targetApkFile.exists()) {
+                PackageManager pm = context.getPackageManager();
+                PackageInfo info = pm.getPackageArchiveInfo(downloadApkPath, PackageManager.GET_ACTIVITIES);
+                if (info != null) {
+                    String versionCode = String.valueOf(info.versionCode);
+                    //比较已下载到本地的apk安装包，与服务器上apk安装包的版本号是否一致
+                    if (downloadApkVersionCode.equals(versionCode)) {
+                        //回调下载结束
+                        downloadApkProgressListener.onDownloadEnd();
+                        //安装
+                        installExistsApk(downloadApkPath);
+                        downloadUrl = "";
+                        return;
+                    }
+                }
+            }
+            //要检查本地是否有安装包，有则删除重新下
+            File apkFile = new File(downloadApkPath);
+            if (apkFile.exists()) {
+                apkFile.delete();
+            }
+        }
+
+
         DownloadManager.Request request = new DownloadManager.Request(Uri.parse(downloadUrl));
         //网络环境下载
         request.setAllowedNetworkTypes(downloadNetworkType);
@@ -145,6 +185,24 @@ public class DownloadApkUtil {
             return;
         }
 
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            Uri contentUri = FileProvider.getUriForFile(context, packageName + ".fileProvider", apkFile);
+            intent.setDataAndType(contentUri, APK_MIME_TYPE);
+        } else {
+            intent.setDataAndType(Uri.fromFile(apkFile), APK_MIME_TYPE);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        }
+        context.startActivity(intent);
+    }
+
+    /**
+     * 安装已经存在的apk
+     * @param downloadApkPath apk 已经下载的apk路径
+     */
+    public void installExistsApk(String downloadApkPath) {
+        File apkFile = new File(downloadApkPath);
         Intent intent = new Intent(Intent.ACTION_VIEW);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
